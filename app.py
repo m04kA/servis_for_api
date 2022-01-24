@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template, make_response
 from mongoLib import *
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -16,6 +17,21 @@ links_with_log_admin = {"Главная": "/", "Выйти": "/logout", "Дан�
                         "Изменить данные о пользователе для админа": "/private/users/{pk}"}
 
 links_without_log = {"Главная": "/", "Войти": "/login", "Данные о всех пользователях": "/users"}
+
+menu = links_without_log
+
+
+@app.before_request
+def validate_user_for_menu():
+    global menu
+    cooky = ""
+    if request.cookies.get('logged'):
+        cooky = request.cookies.get('logged')
+
+    if cooky == 'yes':
+        menu = links_with_log
+    else:
+        menu = links_without_log
 
 
 @app.before_request
@@ -42,43 +58,62 @@ def conecting_to_DB(name_DB="Kefir", name_collection="Kefir_collection", port=27
 
 @app.route('/')
 def main_page():
-    menu = links_without_log
-    cooky = ""
-    if request.cookies.get('logged'):
-        cooky = request.cookies.get('logged')
-
-    if cooky == 'yes':
-        menu = links_with_log
+    # menu = links_without_log
+    # cooky = ""
+    # if request.cookies.get('logged'):
+    #     cooky = request.cookies.get('logged')
+    #
+    # if cooky == 'yes':
+    #     menu = links_with_log
+    global menu
     content = render_template('base.html', menu=menu)
     rez = make_response(content, 200)
-    rez.set_cookie('logged', 'yes')
     return rez
 
 
 @app.route("/logout")
-def logout():
-    menu = links_without_log
+def logout_logout_get():
+    global menu
+    # menu = links_without_log
     content = render_template("base.html", menu=menu, title="Вы больше не авторизованы!")
     res = make_response(content)
     res.set_cookie("logged", "", 0)
     return res
 
 
-@app.route("/login")
-def login():
-    menu = links_with_log
-    content = render_template("base.html", menu=menu, title="Вы авторизованы!")
+@app.route("/login", methods=['post', 'get'])
+def login_login_post():
+    # menu = links_with_log
+    global menu
+    content = render_template("login.html", menu=menu, title="Вход на портал")
     res = make_response(content)
     res.set_cookie("logged", "yes")
     return res
 
 
-# admin = {
-#     'login': 'admin',
-#     'password': 'ADmIn'
-# }
-# conecting_to_DB()
-# insert_document(collection_name, admin)
+@app.route("/register", methods=['post', 'get'])
+def register():
+    global menu
+    return render_template("register.html", menu=menu, title="Регистрация")
+
+
+#
+admin = {
+
+    "First Name": "Jack",
+    "Last Name": "Sims",
+    "Other Name": "Alexandrovich",
+    "Email": "admin@admin.ru",
+    "phone": '8-915-190-17-22',
+    "birthday": "12.11.2003",
+    "city": "Moscow",
+    "additional_info": "Nothing",
+    "password": "ADmIn",
+    "is_admin": True
+}
+conecting_to_DB()
+collection_name.create_index([("Email", pymongo.ASCENDING)], unique=True)
+insert_document(collection_name, admin)
 
 if __name__ == '__main__':
     app.run(debug=True)
