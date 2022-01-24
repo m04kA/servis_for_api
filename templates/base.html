@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Реализация API</title>
+</head>
+<body>
+{% block content -%}
+    {%- block mainmenu -%}
+        <ul>
+            {% for key, value in menu.items() %}
+                <li><a href="{{ value }}">{{ key }}</a></li>
+            {% endfor %}
+        </ul>
+    {% endblock mainmenu -%}
+    {% if title -%}
+        <h1>{{ title }}</h1>
+    {% else -%}
+        <h1>Реализация API</h1>
+    {% endif -%}
+{% endblock -%}
+</body>
+</html>
