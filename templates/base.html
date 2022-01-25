@@ -10,14 +10,14 @@
         alert("Это сайт требует включенных cookies для своей корректной работы ");
     }
 </script>
+{%- block mainmenu -%}
+    <ul>
+        {% for key, value in menu.items() %}
+            <li><a href="{{ value }}">{{ key }}</a></li>
+        {% endfor %}
+    </ul>
+{% endblock mainmenu -%}
 {% block content -%}
-    {%- block mainmenu -%}
-        <ul>
-            {% for key, value in menu.items() %}
-                <li><a href="{{ value }}">{{ key }}</a></li>
-            {% endfor %}
-        </ul>
-    {% endblock mainmenu -%}
     {% if title -%}
         <h1>{{ title }}</h1>
     {% else -%}
