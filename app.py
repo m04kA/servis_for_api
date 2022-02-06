@@ -1,12 +1,15 @@
-from flask import Flask, request, render_template, make_response, redirect
+from flask import Flask, request, render_template, make_response, redirect, url_for, jsonify
 from mongoLib import *
 from werkzeug.security import generate_password_hash, check_password_hash
+from schems import *
+from datetime import datetime
+from constants import *
+
 from forms import RegistrationForm, LoginForm
 
 app = Flask(__name__)
 
 collection_name = None
-client = None
 links_all = ["/login", "/logout", "/users/current", "/users", "/users/{pk}", "/private/users", "/private/users/{pk}"]
 
 links_with_log = {"Главная": "/", "Выйти": "/logout", "Данные о пользователе": "/users/current",
@@ -17,7 +20,7 @@ links_with_log_admin = {"Главная": "/", "Выйти": "/logout", "Дан�
                         "Все данные о пользователях для админа": "/private/users",
                         "Изменить данные о пользователе для админа": "/private/users/{pk}"}
 
-links_without_log = {"Главная": "/", "Войти": "/login", "Данные о всех пользователях": "/users"}
+links_without_log = {"Главная": "/", "Войти || Зарегистрироваться": "/login", "Данные о всех пользователях": "/users"}
 
 menu = links_without_log
 
@@ -25,12 +28,13 @@ menu = links_without_log
 @app.before_request
 def validate_user_for_menu():
     global menu
-    cooky = ""
     if request.cookies.get('logged'):
-        cooky = request.cookies.get('logged')
-
-    if cooky == 'yes':
-        menu = links_with_log
+        if request.cookies.get('logged') == 'yes':
+            if request.cookies.get('admin'):
+                if request.cookies.get('admin') == 'yes':
+                    menu = links_with_log_admin
+            else:
+                menu = links_with_log
     else:
         menu = links_without_log
 
@@ -48,85 +52,219 @@ def conecting_to_DB(name_DB="Kefir", name_collection="Kefir_collection", port=27
     client = pymongo.MongoClient(port=port)
     DB = client[name_DB]
     collection_name = DB[name_collection]
-    # return collection_name
-
-
-# @app.teardown_request
-# def disconecting_to_DB():
-#     global client
-#     client.close()
 
 
 @app.route('/')
 def main_page():
-    # menu = links_without_log
-    # cooky = ""
-    # if request.cookies.get('logged'):
-    #     cooky = request.cookies.get('logged')
-    #
-    # if cooky == 'yes':
-    #     menu = links_with_log
-    global menu
     content = render_template('base.html', menu=menu)
     rez = make_response(content, 200)
     return rez
 
 
-@app.route("/logout")
-def logout_logout_get():
-    global menu
-    if request.cookies.get('logged'):
-        if request.cookies.get('logged') == 'yes':
-            content = render_template("base.html", menu=menu, title="Вы больше не авторизованы!")
-            res = make_response(content)
-            res.set_cookie("logged", "", 0)
-            return res
+@app.route('/test', methods=['post', 'get'])
+def test():
+    if request.method == "POST":
+        code = 403
+        test_dict = {"message": "You don't have enough access", "code": code}
+        return jsonify(test_dict), code
+
+    if request.cookies.get("logged") == 'yes':
+        test_dict = {"hi": "login", "id": 1, "num": 15}
+        content = jsonify(test_dict)
+        content.set_cookie("logged", "", 0)
     else:
-        return redirect("/", code=401)
+        test_dict = {"hi": "bye", "id": 0, "num": 12.3}
+        content = jsonify(test_dict)
+        content.set_cookie("logged", "yes")
+    return content, 200
 
 
-@app.route("/login", methods=['post', 'get'])
+def return_exept_code(code, text):
+    code = code
+    server_answer = {"Message": text, "code": code}
+    content = jsonify(server_answer)
+    content.set_cookie("logged", "", 0)
+    content.set_cookie("admin", "", 0)
+    content.set_cookie("id", "", 0)
+    return content, code
+
+
+def return_exept_code_422(exept):
+    code = 422
+    server_answer = {
+        "Detail": [{"Location": [[el for el in exept]],
+                    "Message": "Wrong input",
+                    "Error Type": "ValidationError"}]
+    }
+    content = jsonify(server_answer)
+    content.set_cookie("logged", "", 0)
+    content.set_cookie("admin", "", 0)
+    content.set_cookie("id", "", 0)
+    return content, code
+
+
+@app.route("/login", methods=['post'])
 def login_login_post():
-    global menu
-    if request.cookies.get('logged'):
-        if request.cookies.get('logged') == 'yes':
-            return redirect("/", code=200)
+    if request.cookies.get('logged') == 'yes':
+        content, code = return_exept_code(403, "You don't have enough access")
+        return content, code
     else:
-        form = LoginForm(request.form)
-        content = render_template("login.html", menu=menu, title="Вход на портал", form=form)
-        res = make_response(content)
-        res.set_cookie("logged", "yes", 24 * 3600)
-        return res
+        if request.method == 'POST':
+            try:
+                data_from_user = request.get_json()
+            except Exception as ex:
+                print(ex)
+                content, code = return_exept_code(400, f"Bad Request: {ex}")
+                return content, code
+            try:
+                login_schema = LoginModel()
+                true_data = login_schema.load(data_from_user)
+            except Exception as ex:
+                print(ex)
+                content, code = return_exept_code_422(ex.messages)
+                return content, code
+            email = true_data['email']
+            password = true_data['password']
+            result = find_document(collection_name, {"email": email})
+            if result:
+                if check_password_hash(result['password'], password):
+                    content, code = return_exept_code(200, "Successful Response")
+                    content.set_cookie("logged", "yes")
+                    content.set_cookie("id", str(result['id']))
+                    if result["is_admin"]:
+                        content.set_cookie("admin", "yes")
+                    return content, code
+                else:
+                    content, code = return_exept_code_422(["Password isn`t true"])
+                    return content, code
+            else:
+                content, code = return_exept_code_422(["The user does not exist"])
+                return content, code
 
 
-@app.route("/register", methods=['post', 'get'])
-def register():
-    global menu
-    form = RegistrationForm
-    return render_template("register.html", menu=menu, title="Регистрация", form=form)
+@app.route("/logout", methods=['get'])
+def logout_logout_get():
+    if request.cookies.get('logged') == 'yes':
+        content, code = return_exept_code(200, "Successful Response")
+        return content, code
+
+    else:
+        content, code = return_exept_code(403, "You don't have enough access")
+        return content, code
 
 
+@app.route("/users/current", methods=['get'])
+def current_user_users_current_get():
+    if request.cookies.get('logged') == 'yes' and request.cookies.get('id') != "":
+        user = find_document(collection_name, {'id': int(request.cookies.get('id'))})
+        try:
+            user['birthday'] = str(user['birthday'])
+            schem_for_info_user = CurrentUserResponseModel()
+            answer_server_info = schem_for_info_user.load(user)
+        except Exception as ex:
+            content, code = return_exept_code_422(ex.messages)
+            return content, code
+        content = jsonify(answer_server_info)
+        return content, 200
+    elif request.cookies.get('logged'):
+        content, code = return_exept_code(400, f"Bad Request, try logout and then login again.")
+        return content, code
+    else:
+        content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
+        return content, code
+
+
+# @app.route("/register", methods=['post', 'get'])
+# def register():
+#     form = RegistrationForm(request.form)
+#     if request.method == "POST":
+#         email = request.form.get('email')
+#         password = request.form.get('password')
+#         confirm = request.form.get('confirm')
+#         first_name = request.form.get('First_name')
+#         second_name = request.form.get('Second_name')
+#         other_name = request.form.get('Other_name')
+#         phone = request.form.get('phone')
+#         birthday = request.form.get('birthday')
+#         city = request.form.get('city')
+#         additional_info = request.form.get('additional_info')
 #
-admin = {
+#         result = find_document(collection_name, {"Email": email})
+#         if password != confirm:
+#             return render_template("register.html", menu=menu, title="Пароли не совпадают", form=form)
+#         elif result:
+#             return render_template("register.html", menu=menu, title="Почта уже занята", form=form)
+#         elif form.validate_on_submit:
+#             user = {
+#                 "First Name": first_name,
+#                 "Last Name": second_name,
+#                 "Other Name": other_name,
+#                 "Email": email,
+#                 "phone": phone,
+#                 "birthday": birthday,
+#                 "city": city,
+#                 "additional_info": additional_info,
+#                 "password": generate_password_hash(password),
+#                 "is_admin": False
+#             }
+#             insert_document(collection_name, user)
+#             return redirect(url_for("login_login_post", code=200))
+#
+#     return render_template("register.html", menu=menu, title="Регистрация", form=form)
 
-    "First Name": "Jack",
-    "Last Name": "Sims",
-    "Other Name": "Alexandrovich",
-    "Email": "admin@admin.ru",
+
+# ---- Start info for DB ----
+conecting_to_DB()
+admin = {
+    "id": int(collection_name.count_documents({})),
+    "first_name": "Jack",
+    "last_name": "Sims",
+    "other_name": "Alexandrovich",
+    "email": "admin@admin.ru",
     "phone": '8-915-190-17-22',
-    "birthday": "12.11.2003",
-    "city": "Moscow",
-    "additional_info": "Nothing",
-    "password": "ADmIn",
+    "birthday": str(datetime.strptime("12.11.2003", "%d.%m.%Y")),
+    "city": 1,
+    "password": generate_password_hash("ADmIn"),
     "is_admin": True
 }
-conecting_to_DB()
-result = find_document(collection_name, {"Email": admin['Email'], "password": admin['password']})
+
+cities = {
+    "id": 0,
+    "0": "NO",
+    "1": "Moscow",
+    "2": "Saint-Petersburg",
+    "3": "Nizhny-Novgorod",
+    "4": "Samara",
+    "5": "Uglich"
+}
+count_cities = len(cities) - 2
+# -----------------------------------
+
+# ---- Upload data about ADMIN ----
+create_admin_shem = PrivateCreateUserModel()
+try:
+    admin_schem = create_admin_shem.load(admin)
+except Exception as exx:
+    raise ValueError(f"Problem with admin: {exx}")
+result = find_document(collection_name, {"email": admin_schem['email']})
 if result:
-    update_document(collection_name, {"Email": admin['Email'], "password": admin['password']}, admin)
+    update_document(collection_name, {"email": admin_schem['email']}, admin_schem)
 else:
-    collection_name.create_index([("Email", pymongo.ASCENDING)], unique=True)
-    insert_document(collection_name, admin)
+    collection_name.create_index([("email", pymongo.ASCENDING)], unique=True)
+    collection_name.create_index([("id", pymongo.ASCENDING)], unique=True)
+    insert_document(collection_name, admin_schem)
+# -----------------------------------
+
+
+# ---- Upload data about cities ----
+result = ""
+result = find_document(collection_name, {"id": cities['id']})
+if result:
+    update_document(collection_name, {"id": cities['id']}, cities)
+else:
+    collection_name.create_index([("id", pymongo.ASCENDING)], unique=True)
+    insert_document(collection_name, cities)
+# -----------------------------------
 
 if __name__ == '__main__':
     app.run(debug=True)

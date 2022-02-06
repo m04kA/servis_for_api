@@ -44,6 +44,16 @@
               }
             }
           },
+          "403": {
+            "description": "No access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -71,6 +81,16 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "403": {
+            "description": "No access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
               }
             }
           }
