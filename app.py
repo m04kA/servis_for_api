@@ -61,35 +61,58 @@ def main_page():
     return rez
 
 
+@app.route('/test/<pk>', methods=['post', 'get'])
+def test_pk(pk):
+    if request.method == "POST":
+        code = 403
+        test_dict = {"message": "You don't have enough access", "code": code}
+        return jsonify(test_dict), code
+
+    if pk == 0:
+        if request.cookies.get("logged") == 'yes':
+            test_dict = {"hi": "login", "id": 1, "num": 15}
+            content = jsonify(test_dict)
+            content.set_cookie("logged", "", 0)
+        else:
+            test_dict = {"hi": "bye", "id": 0, "num": 12.3}
+            content = jsonify(test_dict)
+            content.set_cookie("logged", "yes")
+        return content, 200
+    else:
+        print(type(pk))
+        return pk
+
+
 @app.route('/test', methods=['post', 'get'])
 def test():
     if request.method == "POST":
         code = 403
         test_dict = {"message": "You don't have enough access", "code": code}
         return jsonify(test_dict), code
-
-    if request.cookies.get("logged") == 'yes':
-        test_dict = {"hi": "login", "id": 1, "num": 15}
-        content = jsonify(test_dict)
-        content.set_cookie("logged", "", 0)
     else:
-        test_dict = {"hi": "bye", "id": 0, "num": 12.3}
-        content = jsonify(test_dict)
-        content.set_cookie("logged", "yes")
-    return content, 200
+        if request.cookies.get("logged") == 'yes':
+            test_dict = {"hi": "login", "id": 1, "num": 15}
+            content = jsonify(test_dict)
+            content.set_cookie("logged", "", 0)
+        else:
+            test_dict = {"hi": "bye", "id": 0, "num": 12.3}
+            content = jsonify(test_dict)
+            content.set_cookie("logged", "yes")
+        return content, 200
 
 
-def return_exept_code(code, text):
+def return_exept_code(code, text, cooky=True):
     code = code
     server_answer = {"Message": text, "code": code}
     content = jsonify(server_answer)
-    content.set_cookie("logged", "", 0)
-    content.set_cookie("admin", "", 0)
-    content.set_cookie("id", "", 0)
+    if cooky:
+        content.set_cookie("logged", "", 0)
+        content.set_cookie("admin", "", 0)
+        content.set_cookie("id", "", 0)
     return content, code
 
 
-def return_exept_code_422(exept):
+def return_exept_code_422(exept, cooky=True):
     code = 422
     server_answer = {
         "Detail": [{"Location": [[el for el in exept]],
@@ -97,9 +120,10 @@ def return_exept_code_422(exept):
                     "Error Type": "ValidationError"}]
     }
     content = jsonify(server_answer)
-    content.set_cookie("logged", "", 0)
-    content.set_cookie("admin", "", 0)
-    content.set_cookie("id", "", 0)
+    if cooky:
+        content.set_cookie("logged", "", 0)
+        content.set_cookie("admin", "", 0)
+        content.set_cookie("id", "", 0)
     return content, code
 
 
@@ -147,30 +171,64 @@ def logout_logout_get():
     if request.cookies.get('logged') == 'yes':
         content, code = return_exept_code(200, "Successful Response")
         return content, code
-
     else:
         content, code = return_exept_code(403, "You don't have enough access")
         return content, code
 
 
-@app.route("/users/current", methods=['get'])
+@app.route("/users/current")
 def current_user_users_current_get():
-    if request.cookies.get('logged') == 'yes' and request.cookies.get('id') != "":
-        user = find_document(collection_name, {'id': int(request.cookies.get('id'))})
-        try:
-            user['birthday'] = str(user['birthday'])
-            schem_for_info_user = CurrentUserResponseModel()
-            answer_server_info = schem_for_info_user.load(user)
-        except Exception as ex:
-            content, code = return_exept_code_422(ex.messages)
+    if request.method == "GET":
+        if request.cookies.get('logged') == 'yes' and request.cookies.get('id') != "":
+            user = find_document(collection_name, {'id': int(request.cookies.get('id'))})
+            try:
+                user['birthday'] = str(user['birthday'])
+                schem_for_info_user = CurrentUserResponseModel()
+                answer_server_info = schem_for_info_user.load(user)
+            except Exception as ex:
+                content, code = return_exept_code_422(ex.messages)
+                return content, 500
+            content = jsonify(answer_server_info)
+            return content, 200
+        else:
+            content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
             return content, code
-        content = jsonify(answer_server_info)
-        return content, 200
-    elif request.cookies.get('logged'):
-        content, code = return_exept_code(400, f"Bad Request, try logout and then login again.")
+    else:
+        content, code = return_exept_code(400, f"Bad Request. You are using the wrong request. ")
+        return content, code
+
+
+@app.route("/users/<pk>", methods=['post', 'get'])
+def edit_user_users__pk__patch(pk):
+    if request.method != "POST":
+        content, code = return_exept_code(400, f"Bad Request. You are using the wrong request. ", cooky=False)
+        return content, code
+    elif request.cookies.get('logged') != 'yes':
+        content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
+        return content, code
+    elif request.cookies.get("id") != pk:
+        content, code = return_exept_code(403,
+                                          "You don't have enough access. Pleas using your 'id', you can find it in '/users/current'.",
+                                          cooky=False)
         return content, code
     else:
-        content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
+        try:
+            data_from_user_for_update_info = request.get_json()
+        except Exception as ex:
+            print(ex)
+            content, code = return_exept_code(400, f"Bad Request: {ex}", cooky=False)
+            return content, code
+        try:
+            login_schema = UpdateUserModel()
+            true_data = login_schema.load(data_from_user_for_update_info)
+        except Exception as ex:
+            print(ex)
+            content, code = return_exept_code_422(ex.messages, cooky=False)
+            return content, code
+        result = find_document(collection_name, {"id": int(pk)})
+        new_info_user = result | true_data
+        update_document(collection_name, {"id": int(pk)}, new_info_user)
+        content, code = return_exept_code(200, "Successful Response", cooky=False)
         return content, code
 
 
@@ -216,7 +274,7 @@ def current_user_users_current_get():
 # ---- Start info for DB ----
 conecting_to_DB()
 admin = {
-    "id": int(collection_name.count_documents({})),
+    "id": 1,
     "first_name": "Jack",
     "last_name": "Sims",
     "other_name": "Alexandrovich",
@@ -226,6 +284,19 @@ admin = {
     "city": 1,
     "password": generate_password_hash("ADmIn"),
     "is_admin": True
+}
+# int(collection_name.count_documents({}))
+user = {
+    "id": 2,
+    "first_name": "Sam",
+    "last_name": "Johan",
+    "other_name": "Petrovich",
+    "email": "noadmin@noadmin.ru",
+    "phone": '8-916-196-16-26',
+    "birthday": str(datetime.strptime("14.02.2020", "%d.%m.%Y")),
+    "city": 2,
+    "password": generate_password_hash("JoHAn"),
+    "is_admin": False
 }
 
 cities = {
@@ -252,6 +323,20 @@ if result:
 else:
     collection_name.create_index([("email", pymongo.ASCENDING)], unique=True)
     collection_name.create_index([("id", pymongo.ASCENDING)], unique=True)
+    insert_document(collection_name, admin_schem)
+# -----------------------------------
+
+
+# ---- Upload data about User ----
+create_admin_shem = PrivateCreateUserModel()
+try:
+    admin_schem = create_admin_shem.load(user)
+except Exception as exx:
+    raise ValueError(f"Problem with user: {exx}")
+result = find_document(collection_name, {"email": admin_schem['email']})
+if result:
+    update_document(collection_name, {"email": admin_schem['email']}, admin_schem)
+else:
     insert_document(collection_name, admin_schem)
 # -----------------------------------
 

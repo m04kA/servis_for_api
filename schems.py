@@ -8,6 +8,7 @@ class CurrentUserResponseModel(Schema):
     It is simple data for showing (not admin)
     (return - get)
     """
+    id = fields.Integer(required=True)
     first_name = fields.String()
     last_name = fields.String()
     other_name = fields.String(default="NO")
@@ -101,7 +102,7 @@ class UpdateUserModel(Schema):
     first_name = fields.String()
     last_name = fields.String()
     other_name = fields.String()
-    email = fields.Email(required=True)
+    email = fields.Email()
     phone = fields.String()
     birthday = fields.DateTime()
 

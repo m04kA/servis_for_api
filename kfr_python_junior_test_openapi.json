@@ -136,6 +136,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Problems with data from DB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -181,6 +191,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access",
             "content": {
               "application/json": {
                 "schema": {
@@ -714,6 +734,7 @@
       "CurrentUserResponseModel": {
         "title": "CurrentUserResponseModel",
         "required": [
+          "id",
           "first_name",
           "last_name",
           "other_name",
@@ -725,6 +746,10 @@
         "type": "object",
         "properties": {
           "first_name": {
+            "id": {
+            "title": "Id",
+            "type": "integer"
+          },
             "title": "First Name",
             "type": "string"
           },
