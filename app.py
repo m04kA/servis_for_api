@@ -130,7 +130,7 @@ def return_exept_code_422(exept, cooky=True):
 @app.route("/login", methods=['post'])
 def login_login_post():
     if request.cookies.get('logged') == 'yes':
-        content, code = return_exept_code(403, "You don't have enough access")
+        content, code = return_exept_code(403, "You don't have enough access", cooky=False)
         return content, code
     else:
         if request.method == 'POST':
@@ -226,52 +226,176 @@ def edit_user_users__pk__patch(pk):
             content, code = return_exept_code_422(ex.messages, cooky=False)
             return content, code
         result = find_document(collection_name, {"id": int(pk)})
+        if not result:
+            print(404)
+            content, code = return_exept_code(404, "Response 404 Edit User Users  Pk  Patch", cooky=False)
+            return content, code
         new_info_user = result | true_data
         update_document(collection_name, {"id": int(pk)}, new_info_user)
         content, code = return_exept_code(200, "Successful Response", cooky=False)
         return content, code
 
 
-# @app.route("/register", methods=['post', 'get'])
-# def register():
-#     form = RegistrationForm(request.form)
-#     if request.method == "POST":
-#         email = request.form.get('email')
-#         password = request.form.get('password')
-#         confirm = request.form.get('confirm')
-#         first_name = request.form.get('First_name')
-#         second_name = request.form.get('Second_name')
-#         other_name = request.form.get('Other_name')
-#         phone = request.form.get('phone')
-#         birthday = request.form.get('birthday')
-#         city = request.form.get('city')
-#         additional_info = request.form.get('additional_info')
-#
-#         result = find_document(collection_name, {"Email": email})
-#         if password != confirm:
-#             return render_template("register.html", menu=menu, title="Пароли не совпадают", form=form)
-#         elif result:
-#             return render_template("register.html", menu=menu, title="Почта уже занята", form=form)
-#         elif form.validate_on_submit:
-#             user = {
-#                 "First Name": first_name,
-#                 "Last Name": second_name,
-#                 "Other Name": other_name,
-#                 "Email": email,
-#                 "phone": phone,
-#                 "birthday": birthday,
-#                 "city": city,
-#                 "additional_info": additional_info,
-#                 "password": generate_password_hash(password),
-#                 "is_admin": False
-#             }
-#             insert_document(collection_name, user)
-#             return redirect(url_for("login_login_post", code=200))
-#
-#     return render_template("register.html", menu=menu, title="Регистрация", form=form)
+@app.route("/users", methods=['get'])
+def users_users_get():
+    page = request.args.get('page', default=1, type=int)
+    size = request.args.get('size', default=10, type=int)
+    if page < 1 or size < 1:
+        content, code = return_exept_code(400, f"Bad Request. You are using the wrong request. ", cooky=False)
+        return content, code
+    elif request.cookies.get('logged') != 'yes':
+        content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
+        return content, code
+    total = int(collection_name.count_documents({})) - 1
+    data = []
+    start = (page - 1) * size + 1
+    end = page * size + 1
+    if total < start:
+        server_answer = {
+            "data": data,
+            "meta": {
+                "pagination": {
+                    "total": total,
+                    "page": page,
+                    "size": size
+                }
+            }
+        }
+        return jsonify(server_answer), 200
+    else:
+        if end > total:
+            end = total + 1
+        mass_id_users = [id for id in range(start, end)]
+        users = []
+        for id in mass_id_users:
+            users.append(find_document(collection_name, {"id": id}))
+        try:
+            schem = UsersListElementModel(many=True)
+            data = schem.load(users)
+        except Exception as ex:
+            print(ex)
+            content, code = return_exept_code_422(ex.messages, cooky=False)
+            return content, code
+        server_answer = {
+            "data": data,
+            "meta": {
+                "pagination": {
+                    "total": total,
+                    "page": page,
+                    "size": size
+                }
+            }
+        }
+        return jsonify(server_answer), 200
 
 
-# ---- Start info for DB ----
+@app.route("/private/users", methods=['get'])
+def private_users_private_users_get():
+    if request.method == 'GET':
+        page = request.args.get('page', default=1, type=int)
+        size = request.args.get('size', default=10, type=int)
+        if page < 1 or size < 1:
+            content, code = return_exept_code(400, f"Bad Request. You are using the wrong request. ", cooky=False)
+            return content, code
+        elif request.cookies.get('logged') != 'yes':
+            content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
+            return content, code
+        elif request.cookies.get('admin') != 'yes':
+            content, code = return_exept_code(403,
+                                              "You don't have enough access. Response 403 Private Users Private Users Get")
+            return content, code
+        total = int(collection_name.count_documents({})) - 1
+        data = []
+        start = (page - 1) * size + 1
+        end = page * size + 1
+        if total < start:
+            server_answer = {
+                "data": data,
+                "meta": {
+                    "pagination": {
+                        "total": total,
+                        "page": page,
+                        "size": size
+                    }
+                }
+            }
+            return jsonify(server_answer), 200
+        else:
+            if end > total:
+                end = total + 1
+            mass_id_users = [id for id in range(start, end)]
+            users = []
+            for id in mass_id_users:
+                users.append(find_document(collection_name, {"id": id}))
+            try:
+                schem = UsersListElementModel(many=True)
+                data = schem.load(users)
+            except Exception as ex:
+                print(ex)
+                content, code = return_exept_code_422(ex.messages, cooky=False)
+                return content, code
+            server_answer = {
+                "data": data,
+                "meta": {
+                    "pagination": {
+                        "total": total,
+                        "page": page,
+                        "size": size
+                    }
+                }
+            }
+            return jsonify(server_answer), 200
+
+
+@app.route("/private/users", methods=['post'])
+def private_create_users_private_users_post():
+    if request.method == 'POST':
+        if request.cookies.get('logged') != 'yes':
+            content, code = return_exept_code(401, "Unauthorized: You don't have enough access")
+            return content, code
+        elif request.cookies.get('admin') != 'yes':
+            content, code = return_exept_code(403,
+                                              "You don't have enough access. Response 403 Private Users Private Users Get")
+            return content, code
+        try:
+            new_user_from_admin = request.get_json()
+        except Exception as ex:
+            print(ex)
+            content, code = return_exept_code(400, f"Bad Request: {ex}", cooky=False)
+            return content, code
+        if not new_user_from_admin:
+            content, code = return_exept_code(400, f"Bad Request: data is None", cooky=False)
+            return content, code
+        try:
+            new_user_from_admin['birthday'] = str(datetime.strptime(new_user_from_admin['birthday'], "%d.%m.%Y"))
+            login_schema = PrivateCreateUserModel()
+            true_data = login_schema.load(new_user_from_admin)
+            true_data['password'] = generate_password_hash(true_data['password'])
+        except Exception as ex:
+            print(ex)
+            content, code = return_exept_code_422(ex.messages, cooky=False)
+            return content, code
+        id_new_user = int(collection_name.count_documents({}))
+        true_data['id'] = id_new_user
+        result = ''
+        result = find_document(collection_name, {"id": true_data['id']})
+        if result:
+            content, code = return_exept_code(400, f"Bad Request this user already exists.", cooky=False)
+            return content, code
+        insert_document(collection_name, true_data)
+        result = find_document(collection_name, {"id": id_new_user})
+        try:
+            result["birthday"] = str(result["birthday"])
+            login_schema = PrivateDetailUserResponseModel()
+            server_answer = login_schema.load(result)
+        except Exception as ex:
+            print(ex)
+            content, code = return_exept_code_422(ex.messages, cooky=False)
+            return content, code
+        return jsonify(server_answer), 201
+    # ---- Start info for DB ----
+
+
 conecting_to_DB()
 admin = {
     "id": 1,
@@ -285,19 +409,81 @@ admin = {
     "password": generate_password_hash("ADmIn"),
     "is_admin": True
 }
-# int(collection_name.count_documents({}))
+
+# { (user_7 data for /private/users)
+#     "first_name": "Salamolekume",
+#     "last_name": "Popalameslam",
+#     "email": "admin2@admin2.ru",
+#     "phone": '8-922-122-22-22',
+#     "birthday": "14.03.2020",
+#     "city": 4,
+#     "password": "keKaKu",
+#     "is_admin": True
+# }
+
 user = {
     "id": 2,
+    "first_name": "Salam",
+    "last_name": "Popalam",
+    "other_name": "Sidorovich",
+    "email": "noadmin2@noadmin2.ru",
+    "phone": '8-912-192-12-22',
+    "birthday": str(datetime.strptime("14.02.2020", "%d.%m.%Y")),
+    "city": 2,
+    "password": generate_password_hash("JoHAn"),
+    "is_admin": False
+}
+
+# --------------------------
+user1 = {
+    "id": 3,
     "first_name": "Sam",
     "last_name": "Johan",
     "other_name": "Petrovich",
-    "email": "noadmin@noadmin.ru",
+    "email": "noadmin3@noadmin3.ru",
+    "phone": '8-913-193-13-23',
+    "birthday": str(datetime.strptime("14.02.2020", "%d.%m.%Y")),
+    "city": 2,
+    "password": generate_password_hash("JoHAn"),
+    "is_admin": False
+}
+user2 = {
+    "id": 4,
+    "first_name": "Toshka",
+    "last_name": "Koshka",
+    "other_name": "Petroh",
+    "email": "noadmin4@noadmin4.ru",
+    "phone": '8-914-194-14-24',
+    "birthday": str(datetime.strptime("14.02.2020", "%d.%m.%Y")),
+    "city": 2,
+    "password": generate_password_hash("JoHAn"),
+    "is_admin": False
+}
+user3 = {
+    "id": 5,
+    "first_name": "Sam5",
+    "last_name": "Johan5",
+    "other_name": "Petrovich5",
+    "email": "noadmin5@noadmin5.ru",
+    "phone": '8-915-195-15-25',
+    "birthday": str(datetime.strptime("14.02.2020", "%d.%m.%Y")),
+    "city": 2,
+    "password": generate_password_hash("JoHAn"),
+    "is_admin": False
+}
+user4 = {
+    "id": 6,
+    "first_name": "Sam6",
+    "last_name": "Johan6",
+    "other_name": "Petrovich6",
+    "email": "noadmin6@noadmin6.ru",
     "phone": '8-916-196-16-26',
     "birthday": str(datetime.strptime("14.02.2020", "%d.%m.%Y")),
     "city": 2,
     "password": generate_password_hash("JoHAn"),
     "is_admin": False
 }
+# ---------------------------
 
 cities = {
     "id": 0,
@@ -313,6 +499,7 @@ count_cities = len(cities) - 2
 
 # ---- Upload data about ADMIN ----
 create_admin_shem = PrivateCreateUserModel()
+
 try:
     admin_schem = create_admin_shem.load(admin)
 except Exception as exx:
@@ -326,20 +513,19 @@ else:
     insert_document(collection_name, admin_schem)
 # -----------------------------------
 
-
-# ---- Upload data about User ----
+# ---- Upload data about Users ----
 create_admin_shem = PrivateCreateUserModel()
-try:
-    admin_schem = create_admin_shem.load(user)
-except Exception as exx:
-    raise ValueError(f"Problem with user: {exx}")
-result = find_document(collection_name, {"email": admin_schem['email']})
-if result:
-    update_document(collection_name, {"email": admin_schem['email']}, admin_schem)
-else:
-    insert_document(collection_name, admin_schem)
+for user in [user, user1, user2, user3, user4]:
+    try:
+        admin_schem = create_admin_shem.load(user)
+    except Exception as exx:
+        raise ValueError(f"Problem with user: {exx}")
+    result = find_document(collection_name, {"email": admin_schem['email']})
+    if result:
+        update_document(collection_name, {"email": admin_schem['email']}, admin_schem)
+    else:
+        insert_document(collection_name, admin_schem)
 # -----------------------------------
-
 
 # ---- Upload data about cities ----
 result = ""

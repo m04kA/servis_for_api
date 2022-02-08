@@ -3,7 +3,7 @@
 {% block content %}
     {{ super() }}
     {% from "_formhelpers.html" import render_field %}
-    <form action="/login" method=post>
+    <form action="" method=post>
         <dl>
             {{ render_field(form.email) }}
             {{ render_field(form.password) }}
@@ -11,12 +11,6 @@
         </dl>
         <p><input type=submit value=Login></p>
     </form>
-    {#    <form action="/login" method="post" class="form-contact">#}
-    {#        <p><label>Email: </label> <input type="text" name="email" value="" requied/>#}
-    {#        <p><label>Пароль: </label> <input type="password" name="psw" value="" requied/>#}
-    {#        <p><input type="checkbox" name="remainme"/> Запомнить меня#}
-    {#        <p><input type="submit" value="Войти"/>#}
-    {#        <hr align=left width="300px">#}
-    {#        <p><a href="{{ url_for('register') }}">Регистрация</a>#}
-    {#    </form>#}
+    <hr>
+    <p><a href="{{ url_for("register") }}">Регистрация</a></p>
 {% endblock %}

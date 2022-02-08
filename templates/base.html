@@ -4,12 +4,6 @@
     <title>Реализация API</title>
 </head>
 <body>
-<script>
-    document.cookie = "ex=1;";
-    if (!document.cookie) {
-        alert("Это сайт требует включенных cookies для своей корректной работы ");
-    }
-</script>
 {%- block mainmenu -%}
     <ul>
         {% for key, value in menu.items() %}
@@ -26,3 +20,9 @@
 {% endblock -%}
 </body>
 </html>
+<script>
+    document.cookie = "ex=1;";
+    if (!document.cookie) {
+        alert("Это сайт требует включенных cookies для своей корректной работы ");
+    }
+</script>

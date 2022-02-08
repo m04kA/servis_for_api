@@ -199,16 +199,6 @@
               }
             }
           },
-          "403": {
-            "description": "No access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseModel"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -290,6 +280,16 @@
                 "schema": {
                   "title": "Response 401 Edit User Users  Pk  Patch",
                   "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
                 }
               }
             }
