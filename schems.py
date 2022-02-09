@@ -83,7 +83,7 @@ class PrivateUpdateUserModel(Schema):
     first_name = fields.String()
     last_name = fields.String()
     other_name = fields.String()
-    email = fields.Email(required=True)
+    email = fields.Email()
     phone = fields.String()
     birthday = fields.DateTime()
     city = fields.Number(validate=lambda n: 0 <= n <= count_cities)
@@ -119,7 +119,7 @@ class UpdateUserResponseModel(Schema):
     first_name = fields.String()
     last_name = fields.String()
     other_name = fields.String()
-    email = fields.Email(required=True)
+    email = fields.Email()
     phone = fields.String()
     birthday = fields.DateTime()
 
